@@ -48,7 +48,10 @@ const AIAssistant: React.FC = () => {
 
   const startVoiceSession = async () => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) throw new Error("API Key missing");
+      
+      const ai = new GoogleGenAI({ apiKey });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       if (!audioContextRef.current) {
@@ -65,7 +68,9 @@ const AIAssistant: React.FC = () => {
         callbacks: {
           onopen: () => setIsVoiceActive(true),
           onmessage: async (message) => {
-            const audioData = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            const parts = message.serverContent?.modelTurn?.parts;
+            const audioData = parts?.[0]?.inlineData?.data;
+            
             if (audioData && audioContextRef.current) {
               const ctx = audioContextRef.current;
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
@@ -83,7 +88,6 @@ const AIAssistant: React.FC = () => {
         }
       });
 
-      // Capture mic and send (simplified logic)
       const inputCtx = new AudioContext({ sampleRate: 16000 });
       const source = inputCtx.createMediaStreamSource(stream);
       const processor = inputCtx.createScriptProcessor(4096, 1, 1);
@@ -111,7 +115,10 @@ const AIAssistant: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.API_KEY;
+      if (!apiKey) throw new Error("API Key missing");
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userMessage,
@@ -125,7 +132,6 @@ const AIAssistant: React.FC = () => {
     }
   };
 
-  // Audio Refs
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
