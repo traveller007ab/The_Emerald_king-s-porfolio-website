@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Terminal, Sparkles, Mic, MicOff } from 'lucide-react';
 import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
-import { PROJECTS, EXPERIENCES, SKILLS } from '../constants';
+import { PROJECTS } from '../constants';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -87,8 +87,7 @@ const AIAssistant: React.FC = () => {
 
   const startVoiceSession = async () => {
     try {
-      // Use named parameter and direct process.env.API_KEY access as required
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       if (!audioContextRef.current) {
@@ -105,11 +104,12 @@ const AIAssistant: React.FC = () => {
         callbacks: {
           onopen: () => setIsVoiceActive(true),
           onmessage: async (message: LiveServerMessage) => {
-            const audioData = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            // Robust check for audio data to satisfy TS strict mode
+            const parts = message.serverContent?.modelTurn?.parts;
+            const audioData = (parts && parts.length > 0) ? parts[0].inlineData?.data : undefined;
             
             if (audioData && audioContextRef.current) {
               const ctx = audioContextRef.current;
-              // Synchronize audio chunks using nextStartTime to prevent gaps
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
               const buffer = await decodeAudioData(decode(audioData), ctx, 24000, 1);
               const source = ctx.createBufferSource();
@@ -125,9 +125,10 @@ const AIAssistant: React.FC = () => {
               sourcesRef.current.add(source);
             }
 
-            // Handle model interruptions by clearing the playback queue
             if (message.serverContent?.interrupted) {
-              sourcesRef.current.forEach(s => s.stop());
+              sourcesRef.current.forEach(s => {
+                try { s.stop(); } catch(e) {}
+              });
               sourcesRef.current.clear();
               nextStartTimeRef.current = 0;
             }
@@ -155,13 +156,11 @@ const AIAssistant: React.FC = () => {
           int16[i] = inputData[i] * 32768;
         }
         
-        // Use custom manual encoding for PCM streaming
         const pcmBlob = {
           data: encode(new Uint8Array(int16.buffer)),
           mimeType: 'audio/pcm;rate=16000',
         };
 
-        // Ensure data is sent only after session resolves to prevent race conditions
         sessionPromise.then(s => {
           if (activeSessionRef.current) {
             s.sendRealtimeInput({ media: pcmBlob });
@@ -186,14 +185,12 @@ const AIAssistant: React.FC = () => {
     setIsTyping(true);
 
     try {
-      // Direct client initialization as specified in coding guidelines
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userMessage,
         config: { systemInstruction: `You are Emerald's digital twin. Ground your answers in his GitHub (${GITHUB}), LinkedIn (${LINKEDIN}), and ME background. If asked for contact details, provide his email: ${EMAIL} or his LinkedIn.` }
       });
-      // Correctly access text property (not a method) from the response object
       setMessages(prev => [...prev, { role: 'ai', text: response.text || "System Fluctuating..." }]);
     } catch (error) {
       console.error("Text Generation Error:", error);
