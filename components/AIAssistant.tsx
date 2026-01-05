@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Terminal, Sparkles, Mic, MicOff, Volume2 } from 'lucide-react';
-import { GoogleGenAI, Modality } from "@google/genai";
+import { X, Send, Terminal, Sparkles, Mic, MicOff } from 'lucide-react';
+import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
 import { PROJECTS, EXPERIENCES, SKILLS } from '../constants';
 
 const AIAssistant: React.FC = () => {
@@ -19,20 +19,40 @@ const AIAssistant: React.FC = () => {
   const GITHUB = "traveller007ab";
   const LINKEDIN = "https://www.linkedin.com/in/miracle-bernard-amadi-357788290";
 
+  // References for Live API session management and audio tracking
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const nextStartTimeRef = useRef<number>(0);
+  const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const activeSessionRef = useRef<any>(null);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
 
+  // Manually implement decode as per Google GenAI SDK guidelines
   const decode = (base64: string) => {
     const binaryString = atob(base64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
     return bytes;
   };
 
+  // Manually implement encode as per Google GenAI SDK guidelines
+  const encode = (bytes: Uint8Array) => {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  };
+
+  // Custom audio decoding function for raw PCM data
   const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
     const dataInt16 = new Int16Array(data.buffer);
     const frameCount = dataInt16.length / numChannels;
@@ -46,12 +66,29 @@ const AIAssistant: React.FC = () => {
     return buffer;
   };
 
+  // Proper cleanup for voice session resources
+  const stopVoiceSession = () => {
+    if (activeSessionRef.current) {
+      try {
+        activeSessionRef.current.close();
+      } catch (e) {
+        console.debug('Session already closed');
+      }
+      activeSessionRef.current = null;
+    }
+    setIsVoiceActive(false);
+    // Halt all current audio playback
+    sourcesRef.current.forEach(source => {
+      try { source.stop(); } catch (e) {}
+    });
+    sourcesRef.current.clear();
+    nextStartTimeRef.current = 0;
+  };
+
   const startVoiceSession = async () => {
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) throw new Error("API Key missing");
-      
-      const ai = new GoogleGenAI({ apiKey });
+      // Use named parameter and direct process.env.API_KEY access as required
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       if (!audioContextRef.current) {
@@ -67,42 +104,76 @@ const AIAssistant: React.FC = () => {
         },
         callbacks: {
           onopen: () => setIsVoiceActive(true),
-          onmessage: async (message) => {
-            const parts = message.serverContent?.modelTurn?.parts;
-            const audioData = parts?.[0]?.inlineData?.data;
+          onmessage: async (message: LiveServerMessage) => {
+            const audioData = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             
             if (audioData && audioContextRef.current) {
               const ctx = audioContextRef.current;
+              // Synchronize audio chunks using nextStartTime to prevent gaps
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
               const buffer = await decodeAudioData(decode(audioData), ctx, 24000, 1);
               const source = ctx.createBufferSource();
               source.buffer = buffer;
               source.connect(ctx.destination);
+              
+              source.onended = () => {
+                sourcesRef.current.delete(source);
+              };
+
               source.start(nextStartTimeRef.current);
               nextStartTimeRef.current += buffer.duration;
               sourcesRef.current.add(source);
             }
+
+            // Handle model interruptions by clearing the playback queue
+            if (message.serverContent?.interrupted) {
+              sourcesRef.current.forEach(s => s.stop());
+              sourcesRef.current.clear();
+              nextStartTimeRef.current = 0;
+            }
           },
-          onclose: () => setIsVoiceActive(false),
-          onerror: () => setIsVoiceActive(false),
+          onclose: () => stopVoiceSession(),
+          onerror: (e: any) => {
+            console.error("Live API Error:", e);
+            stopVoiceSession();
+          },
         }
       });
 
+      sessionPromise.then(session => {
+        activeSessionRef.current = session;
+      });
+
       const inputCtx = new AudioContext({ sampleRate: 16000 });
-      const source = inputCtx.createMediaStreamSource(stream);
-      const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-      processor.onaudioprocess = (e) => {
+      const micSource = inputCtx.createMediaStreamSource(stream);
+      const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
+      
+      scriptProcessor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         const int16 = new Int16Array(inputData.length);
-        for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
-        sessionPromise.then(s => s.sendRealtimeInput({ media: { data: base64, mimeType: 'audio/pcm;rate=16000' } }));
+        for (let i = 0; i < inputData.length; i++) {
+          int16[i] = inputData[i] * 32768;
+        }
+        
+        // Use custom manual encoding for PCM streaming
+        const pcmBlob = {
+          data: encode(new Uint8Array(int16.buffer)),
+          mimeType: 'audio/pcm;rate=16000',
+        };
+
+        // Ensure data is sent only after session resolves to prevent race conditions
+        sessionPromise.then(s => {
+          if (activeSessionRef.current) {
+            s.sendRealtimeInput({ media: pcmBlob });
+          }
+        });
       };
-      source.connect(processor);
-      processor.connect(inputCtx.destination);
+
+      micSource.connect(scriptProcessor);
+      scriptProcessor.connect(inputCtx.destination);
 
     } catch (err) {
-      console.error("Voice Error:", err);
+      console.error("Voice Initialization Error:", err);
       setIsVoiceActive(false);
     }
   };
@@ -115,26 +186,22 @@ const AIAssistant: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) throw new Error("API Key missing");
-
-      const ai = new GoogleGenAI({ apiKey });
+      // Direct client initialization as specified in coding guidelines
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userMessage,
         config: { systemInstruction: `You are Emerald's digital twin. Ground your answers in his GitHub (${GITHUB}), LinkedIn (${LINKEDIN}), and ME background. If asked for contact details, provide his email: ${EMAIL} or his LinkedIn.` }
       });
+      // Correctly access text property (not a method) from the response object
       setMessages(prev => [...prev, { role: 'ai', text: response.text || "System Fluctuating..." }]);
-    } catch {
+    } catch (error) {
+      console.error("Text Generation Error:", error);
       setMessages(prev => [...prev, { role: 'ai', text: "Neural link timeout." }]);
     } finally {
       setIsTyping(false);
     }
   };
-
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const nextStartTimeRef = useRef<number>(0);
-  const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
 
   return (
     <div className="fixed bottom-8 right-8 z-[1000]">
@@ -196,7 +263,7 @@ const AIAssistant: React.FC = () => {
             <div className="p-6 bg-zinc-900/80 border-t border-white/5 backdrop-blur-md">
               <div className="relative flex items-center gap-3">
                 <button 
-                  onClick={() => !isVoiceActive ? startVoiceSession() : setIsVoiceActive(false)}
+                  onClick={() => !isVoiceActive ? startVoiceSession() : stopVoiceSession()}
                   className={`p-4 rounded-2xl transition-all ${isVoiceActive ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'}`}
                 >
                   {isVoiceActive ? <MicOff size={18} /> : <Mic size={18} />}
