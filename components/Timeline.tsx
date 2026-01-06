@@ -5,7 +5,7 @@ import { EXPERIENCES } from '../constants';
 
 const Timeline: React.FC = () => {
   return (
-    <section id="experience" className="py-32 px-6">
+    <section id="experience" className="py-32 px-6 bg-transparent backdrop-blur-[1px]">
       <div className="max-w-7xl mx-auto">
         <div className="mb-20">
           <h2 className="text-xs font-bold tracking-[0.3em] uppercase text-zinc-500 mb-4">Log History</h2>
@@ -20,7 +20,7 @@ const Timeline: React.FC = () => {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
-              className="group grid grid-cols-1 md:grid-cols-12 gap-6 py-12 border-b border-white/5 hover:bg-emerald-500/5 transition-all px-4 rounded-2xl"
+              className="group grid grid-cols-1 md:grid-cols-12 gap-6 py-12 border-b border-white/5 hover:bg-emerald-500/5 transition-all px-4 rounded-2xl backdrop-blur-md"
             >
               <div className="md:col-span-2">
                 <span className="text-emerald-500 font-mono text-sm tracking-tighter">{exp.period}</span>
@@ -43,12 +43,6 @@ const Timeline: React.FC = () => {
                     </li>
                   ))}
                 </ul>
-                {exp.company === 'Transmission Company of Nigeria' && (
-                  <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/5">
-                    <p className="text-[10px] font-black text-emerald-500/70 uppercase tracking-widest mb-1">Mechanical Rigor Implementation</p>
-                    <p className="text-zinc-500 text-[11px]">Applied fundamental mechanical principles to high-voltage grid stability and technical load balancing.</p>
-                  </div>
-                )}
               </div>
             </motion.div>
           ))}

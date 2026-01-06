@@ -6,7 +6,7 @@ import { ArrowRight, BookOpen } from 'lucide-react';
 
 const Thoughts: React.FC = () => {
   return (
-    <section id="thoughts" className="py-32 px-6 bg-zinc-950">
+    <section id="thoughts" className="py-32 px-6 bg-transparent backdrop-blur-[2px]">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-8">
           <div>
@@ -26,7 +26,7 @@ const Thoughts: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
-              className="group p-8 rounded-[2rem] bg-zinc-900/30 border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col h-full cursor-pointer"
+              className="group p-8 rounded-[2rem] bg-zinc-900/30 border border-white/5 hover:border-emerald-500/30 transition-all flex flex-col h-full cursor-pointer backdrop-blur-xl"
             >
               <div className="flex justify-between items-center mb-6">
                 <span className="text-[10px] font-mono text-zinc-600">{thought.date}</span>

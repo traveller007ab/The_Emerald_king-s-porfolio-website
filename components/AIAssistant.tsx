@@ -1,29 +1,57 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Terminal, Sparkles, Mic, MicOff } from 'lucide-react';
+import { X, Send, Terminal, Mic, MicOff, Cpu, Command } from 'lucide-react';
 import { GoogleGenAI, Modality, LiveServerMessage } from "@google/genai";
-import { PROJECTS } from '../constants';
 
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([
-    { role: 'ai', text: "Systems online. I am Emerald's digital twin. Toggle the mic to speak, or type your query below." }
+    { role: 'ai', text: "Systems online. I am Emerald's digital twin. Toggle the mic for high-bandwidth voice interaction, or type your query below." }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const EMAIL = "Emeraldworks36@gmail.com";
-  const GITHUB = "traveller007ab";
-  const LINKEDIN = "https://www.linkedin.com/in/miracle-bernard-amadi-357788290";
-
-  // References for Live API session management and audio tracking
   const audioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const activeSessionRef = useRef<any>(null);
+
+  const SYSTEM_PROMPT = `You are "Sovereign AI", the digital twin and assistant for Emerald King, an elite AI Architect and Systems Engineer. 
+  Emerald specializes in autonomous agentic frameworks and mechanical-grade software.
+  His key projects include:
+  1. Eldoria AI (Agentic automation)
+  2. EmeraldRecords (AI-driven data synthesis)
+  3. Signal Flow (Trading automation)
+  4. Hardware Printing Pipelines.
+  Be professional, technical, and high-context. Keep responses relatively concise.`;
+
+  const closeAssistant = () => {
+    stopVoiceSession();
+    setIsOpen(false);
+  };
+
+  useEffect(() => {
+    const handleTrigger = (e: any) => {
+      setIsOpen(true);
+      if (e.detail?.message) {
+        handleSendText(e.detail.message);
+      }
+    };
+    
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeAssistant();
+    };
+
+    window.addEventListener('system:initialize', handleTrigger);
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('system:initialize', handleTrigger);
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -31,28 +59,19 @@ const AIAssistant: React.FC = () => {
     }
   }, [messages, isTyping]);
 
-  // Manually implement decode as per Google GenAI SDK guidelines
   const decode = (base64: string) => {
     const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
     return bytes;
   };
 
-  // Manually implement encode as per Google GenAI SDK guidelines
   const encode = (bytes: Uint8Array) => {
     let binary = '';
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
     return btoa(binary);
   };
 
-  // Custom audio decoding function for raw PCM data
   const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
     const dataInt16 = new Int16Array(data.buffer);
     const frameCount = dataInt16.length / numChannels;
@@ -66,21 +85,13 @@ const AIAssistant: React.FC = () => {
     return buffer;
   };
 
-  // Proper cleanup for voice session resources
   const stopVoiceSession = () => {
     if (activeSessionRef.current) {
-      try {
-        activeSessionRef.current.close();
-      } catch (e) {
-        console.debug('Session already closed');
-      }
+      try { activeSessionRef.current.close(); } catch (e) {}
       activeSessionRef.current = null;
     }
     setIsVoiceActive(false);
-    // Halt all current audio playback
-    sourcesRef.current.forEach(source => {
-      try { source.stop(); } catch (e) {}
-    });
+    sourcesRef.current.forEach(source => { try { source.stop(); } catch (e) {} });
     sourcesRef.current.clear();
     nextStartTimeRef.current = 0;
   };
@@ -89,215 +100,202 @@ const AIAssistant: React.FC = () => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      }
+      if (!audioContextRef.current) audioContextRef.current = new AudioContext({ sampleRate: 24000 });
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
-          systemInstruction: `You are Emerald King's Voice Twin. Be concise, technical, and confident. Use your knowledge of his projects (${PROJECTS.map(p => p.title).join(', ')}) and his background in Mechanical Engineering to answer. His contact email is ${EMAIL}, his GitHub is ${GITHUB}, and his LinkedIn is ${LINKEDIN}.`,
+          systemInstruction: SYSTEM_PROMPT,
         },
         callbacks: {
-          onopen: () => setIsVoiceActive(true),
+          onopen: () => {
+            setIsVoiceActive(true);
+            const source = audioContextRef.current!.createMediaStreamSource(stream);
+            const scriptProcessor = audioContextRef.current!.createScriptProcessor(4096, 1, 1);
+            scriptProcessor.onaudioprocess = (e) => {
+              const inputData = e.inputBuffer.getChannelData(0);
+              const int16 = new Int16Array(inputData.length);
+              for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
+              const pcmBlob = { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
+              sessionPromise.then(session => session.sendRealtimeInput({ media: pcmBlob }));
+            };
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(audioContextRef.current!.destination);
+          },
           onmessage: async (message: LiveServerMessage) => {
-            // Robust check for audio data to satisfy TS strict mode
-            const parts = message.serverContent?.modelTurn?.parts;
-            const audioData = (parts && parts.length > 0) ? parts[0].inlineData?.data : undefined;
-            
+            const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData && audioContextRef.current) {
-              const ctx = audioContextRef.current;
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-              const buffer = await decodeAudioData(decode(audioData), ctx, 24000, 1);
-              const source = ctx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(ctx.destination);
-              
-              source.onended = () => {
-                sourcesRef.current.delete(source);
-              };
-
+              const audioBuffer = await decodeAudioData(decode(audioData), audioContextRef.current, 24000, 1);
+              const source = audioContextRef.current.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(audioContextRef.current.destination);
+              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, audioContextRef.current.currentTime);
               source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
+              nextStartTimeRef.current += audioBuffer.duration;
               sourcesRef.current.add(source);
+              source.onended = () => sourcesRef.current.delete(source);
             }
-
             if (message.serverContent?.interrupted) {
-              sourcesRef.current.forEach(s => {
-                try { s.stop(); } catch(e) {}
-              });
+              sourcesRef.current.forEach(s => s.stop());
               sourcesRef.current.clear();
               nextStartTimeRef.current = 0;
             }
           },
-          onclose: () => stopVoiceSession(),
-          onerror: (e: any) => {
-            console.error("Live API Error:", e);
-            stopVoiceSession();
-          },
+          onerror: (e) => { console.error(e); stopVoiceSession(); },
+          onclose: () => stopVoiceSession()
         }
       });
-
-      sessionPromise.then(session => {
-        activeSessionRef.current = session;
-      });
-
-      const inputCtx = new AudioContext({ sampleRate: 16000 });
-      const micSource = inputCtx.createMediaStreamSource(stream);
-      const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
-      
-      scriptProcessor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const int16 = new Int16Array(inputData.length);
-        for (let i = 0; i < inputData.length; i++) {
-          int16[i] = inputData[i] * 32768;
-        }
-        
-        const pcmBlob = {
-          data: encode(new Uint8Array(int16.buffer)),
-          mimeType: 'audio/pcm;rate=16000',
-        };
-
-        sessionPromise.then(s => {
-          if (activeSessionRef.current) {
-            s.sendRealtimeInput({ media: pcmBlob });
-          }
-        });
-      };
-
-      micSource.connect(scriptProcessor);
-      scriptProcessor.connect(inputCtx.destination);
-
+      activeSessionRef.current = await sessionPromise;
     } catch (err) {
-      console.error("Voice Initialization Error:", err);
+      console.error(err);
       setIsVoiceActive(false);
     }
   };
 
-  const handleSendText = async () => {
-    if (!input.trim()) return;
-    const userMessage = input;
+  const handleSendText = async (text: string) => {
+    if (!text.trim()) return;
+    const userMsg = { role: 'user' as const, text };
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setIsTyping(true);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: userMessage,
-        config: { systemInstruction: `You are Emerald's digital twin. Ground your answers in his GitHub (${GITHUB}), LinkedIn (${LINKEDIN}), and ME background. If asked for contact details, provide his email: ${EMAIL} or his LinkedIn.` }
+        contents: [...messages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })), { role: 'user', parts: [{ text }] }],
+        config: { systemInstruction: SYSTEM_PROMPT }
       });
-      setMessages(prev => [...prev, { role: 'ai', text: response.text || "System Fluctuating..." }]);
-    } catch (error) {
-      console.error("Text Generation Error:", error);
-      setMessages(prev => [...prev, { role: 'ai', text: "Neural link timeout." }]);
+      const aiResponse = response.text || "System failure. Could not parse response.";
+      setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: 'ai', text: "Critical link error. Connection to Gemini lost." }]);
     } finally {
       setIsTyping(false);
     }
   };
 
   return (
-    <div className="fixed bottom-8 right-8 z-[1000]">
+    <>
+      <button 
+        onClick={() => setIsOpen(true)}
+        className="fixed bottom-10 right-10 z-[80] w-20 h-20 bg-emerald-500 text-black rounded-3xl shadow-[0_0_50px_rgba(16,185,129,0.4)] flex items-center justify-center group hover:scale-110 transition-transform"
+      >
+        <Terminal size={32} />
+        <motion.div 
+          animate={{ scale: [1, 1.2, 1] }} 
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full border-4 border-[#020202] flex items-center justify-center"
+        >
+          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+        </motion.div>
+      </button>
+
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="mb-4 w-[350px] md:w-[450px] h-[600px] glass rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl border border-emerald-500/20"
-          >
-            <div className="p-6 bg-zinc-900/80 border-b border-white/5 flex items-center justify-between backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className={`w-2.5 h-2.5 rounded-full ${isVoiceActive ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                  {isVoiceActive ? 'Voice Mode Active' : 'Neural Interface v2.5'}
-                </span>
-              </div>
-              <button onClick={() => setIsOpen(false)} className="text-zinc-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
-                <X size={18} />
-              </button>
-            </div>
+          <>
+            {/* Backdrop for closing */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeAssistant}
+              className="fixed inset-0 bg-black/70 backdrop-blur-md z-[95]"
+            />
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide bg-zinc-950/20">
-              {messages.map((m, i) => (
-                <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  <div className={`max-w-[90%] p-5 rounded-[1.5rem] text-xs leading-relaxed shadow-lg ${
-                    m.role === 'user' 
-                    ? 'bg-emerald-500 text-black font-bold rounded-tr-none' 
-                    : 'bg-zinc-900/80 text-zinc-300 border border-white/5 font-mono rounded-tl-none'
-                  }`}>
-                    {m.text}
+            <motion.div 
+              initial={{ opacity: 0, y: 100, scale: 0.9, x: '-50%' }}
+              animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+              exit={{ opacity: 0, y: 100, scale: 0.9, x: '-50%' }}
+              className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-[95vw] md:w-[500px] h-[75vh] md:h-[700px] glass rounded-[3.5rem] overflow-hidden flex flex-col border border-white/10 shadow-[0_50px_100px_rgba(0,0,0,0.9)]"
+            >
+              {/* Header */}
+              <div className="p-10 border-b border-white/5 bg-zinc-950/50 flex justify-between items-center">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-black shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+                    <Cpu size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-black text-xs uppercase tracking-[0.2em] leading-none mb-2">SOVEREIGN_LINK</h4>
+                    <span className="text-[9px] font-mono text-emerald-500 animate-pulse uppercase tracking-widest font-bold">Node: Active</span>
                   </div>
                 </div>
-              ))}
-              {isVoiceActive && (
-                <div className="flex justify-center py-8">
-                  <div className="flex gap-1 items-center h-8">
-                    {[1,2,3,4,5,6,7,8].map(i => (
-                      <motion.div
-                        key={i}
-                        animate={{ height: [8, 32, 8] }}
-                        transition={{ repeat: Infinity, duration: 0.5, delay: i * 0.05 }}
-                        className="w-1 bg-emerald-500/50 rounded-full"
-                      />
-                    ))}
+                <div className="flex items-center gap-5">
+                   <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-white/5 rounded-full border border-white/10">
+                      <Command size={12} className="text-zinc-600" />
+                      <span className="text-[9px] font-mono text-zinc-600 uppercase font-black">ESC_TO_EXIT</span>
+                   </div>
+                   <button onClick={closeAssistant} className="p-2 text-zinc-600 hover:text-white transition-colors">
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-10 space-y-8 scrollbar-hide">
+                {messages.map((m, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    key={i} 
+                    className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[85%] p-6 rounded-[2rem] text-sm leading-relaxed ${
+                      m.role === 'user' 
+                      ? 'bg-white text-black font-black' 
+                      : 'bg-zinc-900/50 border border-white/5 text-zinc-300 backdrop-blur-md'
+                    }`}>
+                      {m.text}
+                    </div>
+                  </motion.div>
+                ))}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-zinc-900/50 border border-white/5 p-6 rounded-[2rem] flex gap-1.5">
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce" />
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                      <span className="w-2 h-2 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-10 bg-zinc-950/80 border-t border-white/5">
+                <div className="flex items-center gap-5">
+                  <button 
+                    onClick={() => isVoiceActive ? stopVoiceSession() : startVoiceSession()}
+                    className={`flex-shrink-0 w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-all ${
+                      isVoiceActive ? 'bg-red-500 text-white animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-zinc-500 hover:text-emerald-500 hover:bg-emerald-500/10'
+                    }`}
+                  >
+                    {isVoiceActive ? <MicOff size={28} /> : <Mic size={28} />}
+                  </button>
+                  <div className="flex-1 relative">
+                    <input 
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendText(input)}
+                      placeholder="Input frequency protocol..."
+                      className="w-full bg-zinc-900 border border-white/10 rounded-[1.5rem] py-5 px-8 text-white text-xs font-mono focus:outline-none focus:border-emerald-500 transition-all placeholder:text-zinc-800"
+                    />
+                    <button 
+                      onClick={() => handleSendText(input)}
+                      className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-emerald-500 transition-colors"
+                    >
+                      <Send size={22} />
+                    </button>
                   </div>
                 </div>
-              )}
-              {isTyping && (
-                <div className="flex gap-1 items-center">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" />
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 bg-zinc-900/80 border-t border-white/5 backdrop-blur-md">
-              <div className="relative flex items-center gap-3">
-                <button 
-                  onClick={() => !isVoiceActive ? startVoiceSession() : stopVoiceSession()}
-                  className={`p-4 rounded-2xl transition-all ${isVoiceActive ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'}`}
-                >
-                  {isVoiceActive ? <MicOff size={18} /> : <Mic size={18} />}
-                </button>
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-                  placeholder="QUERY KNOWLEDGE BASE..."
-                  className="w-full bg-black/50 border border-white/10 rounded-2xl py-4 px-5 pr-14 text-xs font-mono text-white focus:outline-none focus:border-emerald-500/50 transition-all uppercase placeholder:text-zinc-700 shadow-inner"
-                />
-                <button 
-                  onClick={handleSendText}
-                  disabled={!input.trim()}
-                  className="absolute right-2 p-3 bg-emerald-500 text-black rounded-xl hover:bg-white transition-all disabled:opacity-50"
-                >
-                  <Send size={16} />
-                </button>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
-
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-16 h-16 bg-white text-black rounded-2xl shadow-2xl flex items-center justify-center hover:bg-emerald-500 transition-all group relative overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-emerald-500/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-        <span className="relative z-10">
-          {isOpen ? <Terminal size={24} /> : <Sparkles size={24} className="group-hover:rotate-12 transition-transform" />}
-        </span>
-      </motion.button>
-    </div>
+    </>
   );
 };
 

@@ -1,167 +1,138 @@
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, Github, ExternalLink, X, Shield, Zap, Target, Filter } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowUpRight, Github, Layers, Link as LinkIcon, Hash, Ruler } from 'lucide-react';
 import { PROJECTS } from '../constants';
-import { Project, ProjectCategory } from '../types';
+import { Project } from '../types';
 
-const ProjectGallery: React.FC = () => {
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [activeFilter, setActiveFilter] = useState<ProjectCategory | 'All'>('All');
-
-  const categories: (ProjectCategory | 'All')[] = ['All', 'AI', 'Web', 'Automation', 'Hardware'];
-
-  const filteredProjects = activeFilter === 'All' 
-    ? PROJECTS 
-    : PROJECTS.filter(p => p.category === activeFilter);
+const ProjectItem: React.FC<{ project: Project; index: number }> = ({ project, index }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const projectHash = `0x${(index * 1777 + 9999).toString(16).toUpperCase()}_STABLE`;
 
   return (
-    <section id="projects" className="py-32 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-8">
-          <div>
-            <h2 className="text-xs font-bold tracking-[0.3em] uppercase text-zinc-500 mb-4">Portfolio</h2>
-            <h3 className="text-5xl font-bold text-white tracking-tighter">Production Systems.</h3>
+    <motion.div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative w-full border-t border-white/5 group overflow-hidden"
+    >
+      <motion.div
+        animate={{ opacity: isHovered ? 1 : 0 }}
+        className="absolute inset-0 bg-emerald-500/[0.04] pointer-events-none z-0"
+      />
+
+      <div className="max-w-7xl mx-auto px-6 py-24 md:py-48 relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16 lg:gap-32">
+        <div className="flex-1 space-y-12">
+          <div className="flex flex-wrap items-center gap-8">
+            <span className="text-emerald-500 font-mono text-xs font-black bg-emerald-500/10 px-4 py-1.5 rounded-lg border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">LOG_0{index + 1}</span>
+            <div className="flex gap-4">
+              {project.techStack.map(tech => (
+                <span key={tech} className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest border border-white/5 px-3 py-1 bg-zinc-900/40 rounded backdrop-blur-sm">
+                  {tech}
+                </span>
+              ))}
+            </div>
+            <div className="hidden xl:flex items-center gap-3 text-emerald-500/40 font-mono text-[9px] uppercase tracking-widest">
+               <Hash size={12} /> HASH: {projectHash}
+            </div>
           </div>
           
-          <div className="flex flex-wrap gap-2 p-2 bg-zinc-900/50 border border-white/5 rounded-2xl">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveFilter(cat)}
-                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  activeFilter === cat 
-                  ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' 
-                  : 'text-zinc-500 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <h3 className="text-7xl md:text-[9vw] font-black text-white tracking-tighter uppercase leading-[0.8] group-hover:text-emerald-500 transition-colors duration-1000">
+            {project.title.split(' ')[0]} <br />
+            <span className="opacity-10 group-hover:opacity-100 transition-opacity duration-1000">{project.title.split(' ')[1] || ''}</span>
+          </h3>
+
+          <p className="text-zinc-500 text-xl md:text-3xl max-w-2xl font-medium leading-tight tracking-tight">
+            {project.description}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-12 pt-4">
+            <a 
+              href={project.githubUrl} 
+              target="_blank" 
+              className="group/link flex items-center gap-4 text-white font-mono text-[11px] uppercase tracking-[0.4em] hover:text-emerald-500 transition-colors"
+            >
+              <Github size={22} /> 
+              <span className="border-b border-transparent group-hover/link:border-emerald-500 transition-all">Source_Node</span>
+            </a>
+            <div className="flex items-center gap-4 text-zinc-600 font-mono text-[11px] uppercase tracking-[0.4em]">
+              <Layers size={22} /> {project.category}
+            </div>
+            <div className="flex items-center gap-3">
+              <LinkIcon size={16} className="text-emerald-500" />
+              <span className="text-[10px] font-mono text-emerald-500 uppercase tracking-[0.3em] font-black">CANONICAL_DEPLOY</span>
+            </div>
           </div>
         </div>
 
         <motion.div 
-          layout
-          className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[350px]"
+          animate={{ scale: isHovered ? 1.05 : 1, rotate: isHovered ? -1.5 : 0 }}
+          className="w-full lg:w-[600px] aspect-[4/5] rounded-[5rem] overflow-hidden border border-white/10 bg-zinc-950 shadow-[0_100px_200px_rgba(0,0,0,0.8)] relative group/img transition-all duration-700"
         >
-          <AnimatePresence mode="popLayout">
-            {filteredProjects.map((project, idx) => {
-              const isLarge = (activeFilter === 'All' && (idx === 0 || idx === 3)) || filteredProjects.length === 1;
-              return (
-                <motion.div
-                  key={project.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  onClick={() => setSelectedProject(project)}
-                  whileHover={{ y: -8 }}
-                  className={`group cursor-pointer relative overflow-hidden rounded-[2.5rem] border border-white/5 bg-zinc-900/40 p-10 flex flex-col justify-end transition-all hover:border-emerald-500/30 ${
-                    isLarge ? 'md:col-span-8' : 'md:col-span-4'
-                  }`}
-                >
-                  <div className="absolute inset-0 z-0">
-                    <img 
-                      src={project.imageUrl} 
-                      className="w-full h-full object-cover opacity-20 grayscale transition-all duration-700 group-hover:scale-110 group-hover:opacity-40 group-hover:grayscale-0"
-                      alt={project.title}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
-                  </div>
+          {/* Base Image */}
+          <img 
+            src={project.imageUrl} 
+            alt={project.title}
+            className={`w-full h-full object-cover grayscale brightness-[0.4] transition-all duration-1000 ${isHovered ? 'grayscale-0 brightness-[0.8] scale-110' : ''}`}
+          />
+          
+          {/* Blueprint Overlay Effect */}
+          <motion.div 
+            animate={{ opacity: isHovered ? 0.3 : 0 }}
+            className="absolute inset-0 pointer-events-none mix-blend-overlay"
+            style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(16,185,129,0.5) 1px, transparent 0)', backgroundSize: '20px 20px' }}
+          />
+          <motion.div 
+            animate={{ opacity: isHovered ? 0.2 : 0 }}
+            className="absolute inset-0 pointer-events-none border-4 border-emerald-500/50 m-12 rounded-[3rem]"
+          />
 
-                  <div className="relative z-10">
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {project.techStack.slice(0, 2).map(tech => (
-                        <span key={tech} className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase tracking-widest">
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                    <h4 className="text-3xl font-bold text-white mb-3 flex items-center gap-3">
-                      {project.title} <ArrowUpRight size={20} className="text-zinc-600 group-hover:text-emerald-500 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all" />
-                    </h4>
-                    <p className="text-zinc-400 text-sm max-w-md line-clamp-2">
-                      {project.description}
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90" />
+          
+          <motion.div 
+            animate={{ y: isHovered ? 0 : 40, opacity: isHovered ? 1 : 0 }}
+            className="absolute bottom-16 left-16"
+          >
+            <div className="flex items-center gap-6">
+              <button className="bg-white text-black px-12 py-6 rounded-3xl font-black text-[13px] uppercase tracking-[0.3em] flex items-center gap-5 hover:bg-emerald-500 transition-all shadow-3xl">
+                STRUCTURAL_ANALYSIS <ArrowUpRight size={24} />
+              </button>
+              <div className="hidden sm:flex flex-col font-mono text-[9px] text-zinc-600 uppercase tracking-[0.4em]">
+                 <span>Ref_ID: 0x99A</span>
+                 <span>State: Nominal</span>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="absolute top-16 right-16">
+             <Ruler className="text-emerald-500/20 group-hover:text-emerald-500/40 transition-colors" size={32} />
+          </div>
         </motion.div>
       </div>
+    </motion.div>
+  );
+};
 
-      <AnimatePresence>
-        {selectedProject && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-10">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedProject(null)}
-              className="absolute inset-0 bg-black/90 backdrop-blur-2xl"
-            />
-            
-            <motion.div 
-              layoutId={`project-${selectedProject.id}`}
-              className="relative w-full max-w-5xl bg-zinc-950 border border-white/10 rounded-[3rem] overflow-hidden flex flex-col md:flex-row shadow-2xl max-h-full overflow-y-auto"
-            >
-              <button 
-                onClick={() => setSelectedProject(null)}
-                className="absolute top-8 right-8 z-20 p-3 bg-white/5 hover:bg-white/10 rounded-full text-white transition-colors"
-              >
-                <X size={24} />
-              </button>
-
-              <div className="w-full md:w-1/2 h-[300px] md:h-auto relative">
-                <img src={selectedProject.imageUrl} className="w-full h-full object-cover" alt={selectedProject.title} />
-                <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-transparent to-transparent hidden md:block" />
-                <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent md:hidden" />
-              </div>
-
-              <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col">
-                <div className="flex items-center gap-3 mb-8">
-                  <span className="px-4 py-1.5 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-[0.2em]">
-                    {selectedProject.category}
-                  </span>
-                  <span className="text-zinc-500 font-mono text-[10px]">CASE_STUDY_0{selectedProject.id.length}</span>
-                </div>
-
-                <h3 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-tighter">{selectedProject.title}</h3>
-                
-                <p className="text-zinc-400 text-lg leading-relaxed mb-10">
-                  {selectedProject.longDescription}
-                </p>
-
-                <div className="grid grid-cols-1 gap-6 mb-12">
-                  {selectedProject.outcomes.map((outcome, i) => (
-                    <div key={i} className="flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
-                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0">
-                        <Target size={20} />
-                      </div>
-                      <p className="text-zinc-300 text-sm font-medium leading-snug">{outcome}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-auto flex flex-wrap gap-4">
-                  {selectedProject.liveUrl && (
-                    <a href={selectedProject.liveUrl} target="_blank" className="px-8 py-4 bg-white text-black font-black text-[10px] tracking-[0.2em] uppercase rounded-full flex items-center gap-2 hover:bg-emerald-500 transition-colors">
-                      Launch System <ExternalLink size={14} />
-                    </a>
-                  )}
-                  {selectedProject.githubUrl && (
-                    <a href={selectedProject.githubUrl} target="_blank" className="px-8 py-4 border border-white/10 text-white font-black text-[10px] tracking-[0.2em] uppercase rounded-full flex items-center gap-2 hover:bg-white hover:text-black transition-colors">
-                      Source Code <Github size={14} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </motion.div>
+const ProjectGallery: React.FC = () => {
+  return (
+    <section id="projects" className="bg-transparent pt-32">
+      <div className="max-w-7xl mx-auto px-6 mb-40 flex flex-col md:flex-row justify-between items-end gap-12">
+        <div className="space-y-8">
+          <div className="flex items-center gap-8">
+            <div className="w-16 h-[1px] bg-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+            <h2 className="text-[12px] font-mono text-zinc-600 uppercase tracking-[0.8em] font-black">Production_Archive</h2>
           </div>
-        )}
-      </AnimatePresence>
+          <h3 className="text-7xl md:text-[10vw] font-black text-white tracking-tighter uppercase leading-none">System <br /> <span className="text-emerald-500">Architecture.</span></h3>
+        </div>
+        <div className="font-mono text-[11px] text-zinc-600 uppercase tracking-[0.4em] text-right leading-relaxed max-w-sm pb-8 opacity-60">
+           Displaying verified high-context sovereign nodes. <br /> Deployment registry: 0x221_P_ALPHA.
+        </div>
+      </div>
+      
+      <div className="flex flex-col">
+        {PROJECTS.map((project, idx) => (
+          <ProjectItem key={project.id} project={project} index={idx} />
+        ))}
+      </div>
     </section>
   );
 };

@@ -4,56 +4,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Emerald King | AI Architect & Systems Engineer</title>
+    <title>Emerald King | Sovereign Systems Architect</title>
     
-    <!-- Domain Verification -->
-    <meta name="p:domain_verify" content="663f9f035535e2b5a225568cbf97f5f5"/>
-
-    <!-- SEO Metadata -->
-    <meta name="description" content="Portfolio of Emerald King, an Elite AI Engineer and Systems Builder specializing in high-performance automation and multi-agent architectures." />
-    <meta name="keywords" content="AI Engineer, Systems Architect, Mechanical Engineering, Automation, Emerald King, Nigeria Tech, Full Stack Developer" />
-    <meta property="og:title" content="Emerald King | AI Architect & Systems Engineer" />
-    <meta property="og:description" content="Building the future of autonomous systems and mechanical logic." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-
+    <meta name="description" content="The high-context archive of Emerald King: AI Architect & Systems Engineer." />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;400;600;800&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@100;400;900&family=JetBrains+Mono:wght@100;500;800&display=swap" rel="stylesheet">
     <style>
       :root {
-        --emerald-primary: #10b981;
-        --emerald-glow: rgba(16, 185, 129, 0.15);
+        --emerald: #00ff9d;
+        --bg: #050505;
       }
       body {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #050505;
+        font-family: 'Inter Tight', sans-serif;
+        background-color: var(--bg);
+        color: #a1a1aa;
       }
-      h1, h2, h3, .font-mono {
-        font-family: 'Space Grotesk', sans-serif;
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+      
+      /* Navigation Alignment */
+      section {
+        scroll-margin-top: 100px;
       }
+
+      /* Grid System */
+      .grid-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background-size: 50px 50px;
+        background-image: 
+          linear-gradient(to right, rgba(255,255,255,0.015) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.015) 1px, transparent 1px);
+      }
+
       .noise {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        content: "";
-        opacity: .03;
+        opacity: .04;
         z-index: 9999;
         pointer-events: none;
         background: url('https://grainy-gradients.vercel.app/noise.svg');
       }
+
       .glass {
-        background: rgba(255, 255, 255, 0.02);
-        backdrop-filter: blur(12px);
+        background: rgba(10, 10, 10, 0.4);
+        backdrop-filter: blur(40px);
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
-      .emerald-shadow {
-        box-shadow: 0 0 40px var(--emerald-glow);
+
+      ::-webkit-scrollbar { width: 3px; }
+      ::-webkit-scrollbar-track { background: var(--bg); }
+      ::-webkit-scrollbar-thumb { background: #222; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--emerald); }
+
+      /* Animation for scanning effect */
+      @keyframes scan {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100vh); }
       }
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #050505; }
-      ::-webkit-scrollbar-thumb { background: #18181b; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #10b981; }
     </style>
   <script type="importmap">
 {
@@ -70,10 +81,10 @@
 }
 </script>
 </head>
-  <body class="text-zinc-300 selection:bg-emerald-500/30 overflow-x-hidden">
+  <body class="selection:bg-emerald-500/30 overflow-x-hidden antialiased">
     <div class="noise" aria-hidden="true"></div>
+    <div class="grid-overlay" aria-hidden="true"></div>
     <div id="root"></div>
-    <!-- Entry point for the application -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
