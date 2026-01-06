@@ -2,6 +2,7 @@
   "name": "Emerald King Portfolio",
   "description": "Premium personal portfolio for Emerald King, an elite AI engineer, full-stack developer, and mechanical engineering innovator.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
   ]
 }
