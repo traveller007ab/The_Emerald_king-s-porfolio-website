@@ -89,8 +89,8 @@ const About: React.FC = () => {
                 <div className="absolute top-0 left-0 w-32 h-[2px] bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.6)]" />
                 <div className="flex flex-col xl:flex-row gap-16 items-start">
                   <div className="flex-1">
-                    <p className="text-4xl md:text-7xl font-black text-white tracking-tighter leading-[0.85] mb-12 uppercase italic group-hover:text-emerald-500 transition-colors duration-700">
-                      "Whatever you do, work heartily, as for the Lord and not for men."
+                    <p className="text-5xl md:text-8xl font-black text-white tracking-tighter leading-[0.85] mb-12 uppercase italic group-hover:text-emerald-500 transition-colors duration-700">
+                      "Whatever you do, work heartily."
                     </p>
                     <div className="flex items-center gap-8">
                       <div className="flex flex-col">
@@ -107,7 +107,6 @@ const About: React.FC = () => {
                       <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeWidth="0.5" />
                       <circle cx="50" cy="50" r="5" fill="currentColor" className="animate-pulse" />
                       <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="0.2" fill="none" />
-                      {/* Architectural measurements */}
                       <path d="M10 10 L10 20 M10 10 L20 10" stroke="currentColor" strokeWidth="1" />
                       <path d="M90 90 L90 80 M90 90 L80 90" stroke="currentColor" strokeWidth="1" />
                     </svg>
